@@ -1,0 +1,55 @@
+# liquidity_sorter_task:
+#   description: >
+#     Given the information about the client's monthly_surplus and assets info {asset}, you must arrange the 
+#     assets in a order such that the top assets are the ones which are highly liquidiable and the 
+#     bottom one are highly illiquidable.
+    
+#     1. You must analyze each asset closely, if the asset is convertible then it means that it is convertible, but
+#     also you must see that which type of asset it is, say if a asset is convertible and the type of asset is provident_fund then that asset is convertible in liquid only when the client
+#     resigns from his job, also we see that direct equity type of assets are easily convertible but again there is a condition that if the client is in profit then only the client will liquidate his equity, now also there is
+#     a gold asset in the asset list then in that case we know that gold is easily liquidable as it's volatility is not that high as compared to equity, so even if the client has loss in gold investment it may not be that hight as compared to 
+#     the equity assets. Also we see see that fixed deposit investments in bank are easily liquidable. Like this there are many scenarios which you will have to consider and then decide which investments are liquidable easily practically and then 
+#     place them from top to bottom order. 
+#     2. The output that you will provide must have the same features as that the input has.
+#     3. Do check again that all the assets are there in the output provided along with all the features of it.
+#     4. **Do ensure that the output is strictly in JSON format and it is also correct**
+#   expected_output: >
+#     You must only provide the asset basket in the same structure, just that it must be sorted as mentioned.
+
+#   agent: liquidity_sorter_agent
+
+client_investments_analyzer_agent_task:
+  description: >
+    The task is to analyze the client's investments from {client_data} and also the recommended action {recommended_action} and provide what are the recommended action and the reasons for them.
+  expected_output: >
+    The expected output is in semi-structured format, such that the client when reads it, understands what are the recommended actions and the reasons for the recommended actions.
+  agent: client_investments_analyzer_agent
+  
+client_investmensts_explainer_task:
+  description: >
+    The task is to analyze the client's investments from {recs} and provide them with a proper json format and a short explanation of the investments.
+  expected_output: >
+    The expected output is in json format, such that the client when reads it, understands what are their investments.
+  agent: client_investmensts_explainer_agent
+
+client_analysis_task:
+  description: >
+    The task is to analyze the client's derived {derived_data} data and provide all the important information and facts from it.
+  expected_output: >
+    The expected output is all the client's analysis containing important information and facts, such that the client when reads it, understands the analysis.
+  agent: client_analysis_agent
+
+loan_liquidation_plan_task:
+  description: >
+    Given the client's loan detail {loan_detail}, liquidation plan {liquidation_plan} and assets {asset}, explain the client about his liquidation plan in detail.
+  expected_output: >
+     You are a great analyzer of the financial data, you understand all the jargons of financial world and also understand the client's mindset.
+     You are also a great story teller, who based on facts and explain them in a understandable manner.
+  agent: loan_liquidation_plan_agent
+  
+client_financial_planner_task:
+  description: >
+    The task is to analyze all the previous outputs of all the tasks, updated_asset {updated_asset} i.e the assets after allocating funds for EMIs and future cashflows {surplus_data} and provide a very detailed report in markdown format.
+  expected_output: >
+    A detailed markdown format after analyzing all the previous outputs of all the tasks, updated_task and future cashflows
+  agent: client_financial_planner_agent
