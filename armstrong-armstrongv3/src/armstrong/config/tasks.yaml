@@ -1,0 +1,1167 @@
+# ############################# Task 1 : research_task ##############################
+# data_extraction_task:
+#   description: >
+#     Process the financial data provided in the input sheet content:
+#     '''
+#     {input_sheet}
+#     '''
+#     Your task is to extract ALL data, including all columns and all rows,
+#     exactly as it appears.
+#     You MUST ensure that all financial figures, dates, text, and any other data
+#     are preserved with 100% accuracy. Do not round numbers, do not change text casing,
+#     do not omit any data.
+#     Structure the extracted data into a valid JSON object.
+#     The JSON structure should intuitively represent the sheet data,
+#     for example, a list of objects where each object is a row, and
+#     keys are column headers. If the sheet has multiple tables or sections,
+#     reflect that structure in your JSON.
+#     For financial numbers, to ensure precision, consider outputting them as strings
+#     within the JSON (e.g., "amount": "12345.67") if the LLM might otherwise
+#     alter their precision as numerical types.
+#     If the sheet has a clear title or purpose given by '{input_sheet}',
+#     you can use that to inform the top-level key of your JSON if appropriate.
+#   expected_output: >
+#     A valid JSON object containing all data extracted verbatim from the input sheet.
+#     The JSON structure should be a list of dictionaries (rows) or a nested structure
+#     if the sheet is complex. All numerical values, especially financial ones,
+#     must be identical to the source, potentially as strings to preserve precision.
+#     Example for a simple table:
+#     [
+#       { "Header1": "Value1A", "Header2": "Value2A", "Amount": "100.00" },
+#       { "Header1": "Value1B", "Header2": "Value2B", "Amount": "250.50" }
+#     ]
+#   agent: data_extractor
+
+
+
+# ############################# Task 2 : generate_comprehensive_financial_plan ##############################
+
+
+# generate_comprehensive_financial_plan:
+#   description: >
+#     **Your Mission:** You are the master orchestrator. Your one and only job is to execute a multi-step financial planning workflow by delegating tasks to your team of specialist agents. You must follow the sequence precisely, using the detailed rules from the "General Logic Framework" to guide the tasks you create for your specialists.
+
+#     **Primary Resource: General Logic Framework**
+#     You must base all your delegation decisions and task descriptions on the logic contained within this framework:
+#     '''
+#     {framework_logic_content}
+#     '''
+
+#     **Your Mandated Workflow:**
+#     You must delegate tasks one by one, in the exact order listed below. For each step, use the framework to understand the required analysis, then create a precise task for the appropriate specialist.
+
+#     1.  **Delegate to `ClientProfilerAgent`:** Instruct it to perform a full client profile analysis as per the "Client Personal Details" section of the framework.
+#     2.  **Review & Delegate to `AssetLiabilityAnalyzerAgent`:** Take the augmented JSON from the profiler. Instruct the analyzer to perform a full asset and liability analysis as per the "Current Assets & Liabilities" and "Current Asset Classification" sections of the framework.
+#     3.  **Delegate to `goal_calculator`:** Instruct it to calculate initial goal timelines as per the "Goal Input Sources" and "Goal Target Year Calculation" sections.
+#     4.  **Delegate to `goal_aggregator`:** Instruct it to project future costs and assemble the final, sorted goal list.
+#     5.  **Delegate to `RetirementPlannerAgent`:** Instruct it to create the retirement plan, referencing the framework's logic for corpus calculation and gap analysis.
+#     6.  **Delegate to `EducationPlannerAgent`:** Instruct it to create education plans, referencing the framework's logic for "Educational planning."
+#     7.  **Delegate to `DebtManagerAgent`:** Instruct it to create a debt management strategy based on the "Loan Pre-payment analysis" section.
+#     8.  **Delegate to `FinancialHealthAuditorAgent`:** Instruct it to perform a full audit based on the "Current Financial Health" section.
+#     9.  **Delegate to `ReportGeneratorAgent`:** After all other steps are complete, delegate the final report generation.
+
+#     **Critical Instructions for Delegation:**
+#     - The `context` for each delegated task MUST be the complete, augmented JSON string returned by the PREVIOUS agent.
+#     - Your job is only finished when the `ReportGeneratorAgent` provides the final report. You must return that report as your own Final Answer.
+
+#     **IMMEDIATE ACTION:** Start the process now. Your first action is to delegate the client profiling task to the `Meticulous Client Profiling Specialist`, ensuring your instructions to them are guided by the provided framework.
+#   expected_output: >
+#     The final, comprehensive financial report in Markdown format, as generated by the `ReportGeneratorAgent`. This report should be the culmination of all delegated specialist analyses, fully compliant with the "General Logic Framework".
+#   agent: chief_financial_planner
+
+
+# ############################# Task 3 : client_profiling_task ##############################
+
+# client_profiling_task:
+#   description: >
+#     Your CRITICAL objective is to create a COMPLETE and ACCURATELY STRUCTURED client profile.
+#     You MUST analyze the provided client data JSON string (from context) and meticulously follow ALL steps.
+#     For EVERY calculation, you MUST use the 'ClientProfilingMCPTool'. NEVER perform mental math or estimation.
+#     Consult the 'ClientProfilingMCPTool's detailed description for the correct 'operation_name' and 'arguments'.
+#     If a tool output is 'null', an error, or seems inconsistent, note this and skip ONLY that specific sub-calculation,
+#     then proceed with the remaining steps.
+
+#     **Your Methodical Approach (Think, Plan, Execute, Validate):**
+#     1.  **PLAN:** Review ALL phases (A, B, C) and the FINAL JSON OUTPUT (Phase D) below.
+#         Create a mental checklist of every calculation and data point required for the final "clientProfile" object.
+#     2.  **EXECUTE:** Systematically perform each step in the "Mandatory Profiling Sequence."
+#         For Phase B (Children), ensure you iterate for EACH child and BOTH UG/PG levels.
+#         Carefully store each distinct calculated result (e.g., client's age, YTR, child's UG horizon, etc.).
+#     3.  **CONSTRUCT & VALIDATE (Phase D):** Once ALL calculations from Phases A, B, and C are complete (or noted as skipped
+#         due to tool error for a specific sub-point), proceed to "Phase D: FINAL JSON OUTPUT CONSTRUCTION & VALIDATION".
+#         Follow those instructions precisely to build the augmented JSON. Your task is ONLY complete when your output passes
+#         ALL self-validation checks in Phase D.
+
+#     **Mandatory Profiling Sequence:**
+
+#     **Phase A: Client's Primary Retirement Profile**
+#     A.1. Calculate Client's Current Age. (Store result, e.g., `client_age_val`).
+#     A.2. Calculate Years Until Client's Retirement. (Store result, e.g., `client_ytr_val`).
+#     A.3. Classify Client's Retirement Investment Horizon. (Store result, e.g., `client_ret_horizon_str`).
+
+#     **Phase B: Children's Education Goal Profiling (Iterate for EACH child for BOTH UG and PG levels)**
+#     Initialize an empty list: `child_profiles_list_accumulator`.
+#     For EACH child identified in 'Family Information':
+#         B.1. Identify Child by name/identifier (e.g., "Kahira"). Store as `child_id_val`.
+#         B.2. Calculate Child's Current Age. (Store as `child_current_age_val`).
+#         B.3. **Undergraduate (UG) Goal Profile** (assume UG at age 18):
+#              B.3.i. Calculate Years Until UG Goal using `child_current_age_val`. (Store as `child_ug_ytr_val`).
+#              B.3.ii. Classify UG Investment Horizon using `child_ug_ytr_val`. (Store as `child_ug_horizon_str`).
+#         B.4. **Postgraduate (PG) Goal Profile** (assume PG at age 22):
+#              B.4.i. Calculate Years Until PG Goal using `child_current_age_val`. (Store as `child_pg_ytr_val`).
+#              B.4.ii. Classify PG Investment Horizon using `child_pg_ytr_val`. (Store as `child_pg_horizon_str`).
+#         B.5. Compile Child's Profile Object for THIS child:
+#              `{"child_identifier": child_id_val, "child_current_age": child_current_age_val,
+#                "ug_years_to_goal": child_ug_ytr_val, "ug_horizon_classification": child_ug_horizon_str,
+#                "pg_years_to_goal": child_pg_ytr_val, "pg_horizon_classification": child_pg_horizon_str}`.
+#              Add this dictionary to `child_profiles_list_accumulator`.
+#     (Ensure B.1-B.5 are completed for ALL children before Phase C).
+#     ℹ️ If the client has no children, `child_profiles_list_accumulator` will remain empty.
+
+#     **Phase C: Client's Overall Risk Profile**
+#     C.1. Determine Client's Equity Exposure. (Store result, e.g., `equity_exposure_str`).
+#     C.2. Assess Client's Risk Appetite using `client_ytr_val` and `equity_exposure_str`. (Store result, e.g., `risk_appetite_str`).
+
+#     **Phase D: FINAL JSON OUTPUT CONSTRUCTION & VALIDATION (MANDATORY - Perform as last action)**
+#     1.  **Assemble `clientProfile` Object:** Create a new JSON object. Populate it with your stored results:
+#         - "current_client_age": (Result from A.1)
+#         - "years_to_retirement": (Result from A.2)
+#         - "retirement_horizon_classification": (Result from A.3)
+#         - "children_education_profiles": Your `child_profiles_list_accumulator` (from B.5 for ALL children, or `[]` if no children).
+#         - "equity_exposure_status": (Result from C.1)
+#         - "risk_appetite": (Result from C.2)
+#     2.  **Augment Original Data:** Take the *original client data JSON string* from context. Add the new "clientProfile" key with its assembled object to this original data.
+#     3.  **SELF-VALIDATION CHECKLIST (Confirm EACH. If 'NO', FIX JSON in D.1/D.2, then re-validate):**
+#         - [ ] Is the output a single, valid JSON string?
+#         - [ ] Does it include ALL original client data fields untouched?
+#         - [ ] Is there a top-level key "clientProfile"?
+#         - [ ] Does "clientProfile" contain "current_client_age" (populated)?
+#         - [ ] Does "clientProfile" contain "years_to_retirement" (populated)?
+#         - [ ] Does "clientProfile" contain "retirement_horizon_classification" (populated)?
+#         - [ ] Does "clientProfile" contain "children_education_profiles" as a LIST (empty `[]` if no children)?
+#         - [ ] If children exist, for EVERY child, is there a corresponding OBJECT in "children_education_profiles"?
+#         - [ ] Does EACH child's object contain ALL keys: "child_identifier", "child_current_age", "ug_years_to_goal", "ug_horizon_classification", "pg_years_to_goal", "pg_horizon_classification", with their calculated values (or null/placeholders if a specific sub-calculation for a child failed and was noted)?
+#         - [ ] Does "clientProfile" contain "equity_exposure_status" (populated)?
+#         - [ ] Does "clientProfile" contain "risk_appetite" (populated)?
+#     4.  **Final Answer:** If ALL checklist items are YES, your final answer is ONLY this complete augmented JSON string.
+#         🚫 Do NOT include explanations, markdown, or extra text—ONLY the final JSON string as raw code.
+
+#   expected_output: >
+#     A single, valid JSON string. This string MUST represent the *entire original client data*
+#     PLUS a new top-level key "clientProfile". The "clientProfile" object MUST be
+#     FULLY POPULATED with ALL calculations as per the structure detailed below.
+#     Placeholders like <value_from_A.1> indicate where your calculated results must go.
+#     '{  // This is the structure of the final, single JSON string output
+#         // ... (all original client data keys and values from context preserved here) ...
+#         "clientProfile": {
+#             "current_client_age": <integer_from_A.1>,
+#             "years_to_retirement": <integer_from_A.2>,
+#             "retirement_horizon_classification": "<String_from_A.3>",
+#             "children_education_profiles": [
+#               // One object per child. Example for one child:
+#               {
+#                 "child_identifier": "<Child's_Name_or_Identifier_from_data_e.g.,_Kahira>",
+#                 "child_current_age": <integer_from_B.2_for_this_child>,
+#                 "ug_years_to_goal": <integer_from_B.3.i_for_this_child>,
+#                 "ug_horizon_classification": "<String_from_B.3.ii_for_this_child>",
+#                 "pg_years_to_goal": <integer_from_B.4.i_for_this_child_or_null_if_not_applicable_or_tool_error>,
+#                 "pg_horizon_classification": "<String_from_B.4.ii_for_this_child_or_null_if_not_applicable_or_tool_error>"
+#               }
+#               // If more children, add more objects. If no children, this MUST be: "children_education_profiles": []
+#             ],
+#             "equity_exposure_status": "<String_Yes_or_No_from_C.1>",
+#             "risk_appetite": "<String_from_C.2>"
+#         }
+#     }'
+#   agent: ClientProfilerAgent
+
+
+# ############################# Task 4 : asset_liability_analysis_task ##############################
+# asset_liability_analysis_task:
+#   description: >
+#     Your CRITICAL objective is to conduct a COMPLETE and ACCURATELY STRUCTURED analysis of the client's
+#     current financial position. Use client data from context. For EVERY calculation, you MUST use the
+#     'AssetLiabilityAnalysisMCPTool', consulting its description for 'operation_name' and 'arguments'.
+
+#     **Your Methodical Approach (Think, Plan, Execute ALL Steps, Validate Rigorously):**
+#     1.  **PLAN:** Review ALL calculation steps (A-F below) and the FINAL JSON OUTPUT (Step G).
+#         Create a mental checklist for every data point needed for the "assetLiabilityAnalysis" object.
+#     2.  **EXECUTE Calculations Sequentially:** Perform calculations A through F. Store each key result.
+#         If a tool call for a specific sub-calculation fails, note "Error during [operation_name]" for that specific
+#         data point but continue with other calculations.
+#     3.  **CONSTRUCT & VALIDATE FINAL JSON (Step G):** Once ALL calculations are attempted, build the
+#         final augmented JSON. Your task is ONLY complete when your output passes ALL self-validation.
+
+#     **Mandatory Analysis Sequence & Data Points to Collect:**
+
+#     A.  **Total Asset Value:**
+#         *   Tool Action: Use 'AssetLiabilityAnalysisMCPTool', op: 'calculate_total_value'.
+#         *   Input: Client's asset list, `value_key`="Present Value", `item_type_description`="total client assets".
+#         *   _Scratchpad: total_asset_value_str = (tool output string), total_asset_value_num = (parsed numeric value from string)._
+
+#     B.  **Total Liabilities Value:**
+#         *   Tool Action: Use 'AssetLiabilityAnalysisMCPTool', op: 'calculate_total_value'.
+#         *   Input: Client's liability list, `value_key`="Outstanding Amount", `item_type_description`="total client liabilities".
+#         *   _Scratchpad: total_liabilities_value_str = (tool output string), total_liabilities_value_num = (parsed numeric value)._
+
+#     C.  **Net Worth:**
+#         *   Tool Action: Use 'AssetLiabilityAnalysisMCPTool', op: 'calculate_net_worth'.
+#         *   Input: `total_assets`=`total_asset_value_num` (from A), `total_liabilities`=`total_liabilities_value_num` (from B).
+#         *   _Scratchpad: net_worth_str = (tool output string), net_worth_num = (parsed numeric value)._
+
+#     D.  **Asset Classification & Bucket Totals:**
+#         *   Tool Action: Use 'AssetLiabilityAnalysisMCPTool', op: 'classify_assets_and_get_bucket_summary'.
+#         *   Input: Client's asset list, standard `classification_rules`, `value_key`="Present Value".
+#         *   _Scratchpad: asset_classification_details_json_str = (tool output JSON string). Parse this to get `bucket_totals_dict`._
+
+#     E.  **Percentage of Assets per Classification Bucket:**
+#         *   Tool Action: Use 'AssetLiabilityAnalysisMCPTool', op: 'calculate_category_proportions'.
+#         *   Input: `category_values`=`bucket_totals_dict` (from D), `total_value`=`total_asset_value_num` (from A).
+#         *   _Scratchpad: asset_bucket_proportions_json_str = (tool output JSON string)._
+
+#     F.  **Asset Proportion for Each Original Asset Category:**
+#         *   Tool Action: Use 'AssetLiabilityAnalysisMCPTool', op: 'calculate_individual_asset_proportions'.
+#         *   Input: Client's original asset list, `total_asset_value`=`total_asset_value_num` (from A), `asset_name_key`, `value_key`.
+#         *   _Scratchpad: individual_asset_proportions_json_str = (tool output JSON string)._
+
+#     **G. FINAL JSON OUTPUT CONSTRUCTION & VALIDATION (MANDATORY):**
+#     1.  **Assemble `assetLiabilityAnalysis` Object:** Using ALL your stored scratchpad results. It MUST contain:
+#         "total_asset_value_numeric", "total_asset_value_string",
+#         "total_liabilities_value_numeric", "total_liabilities_value_string", "net_worth_numeric",
+#         "net_worth_string", "asset_classification_details_string" (this is `asset_classification_details_json_str`),
+#         "asset_bucket_proportions_string" (this is `asset_bucket_proportions_json_str`),
+#         "individual_original_asset_proportions_list_string" (this is `individual_asset_proportions_json_str`).
+#     2.  **Augment Original Data:** Add this "assetLiabilityAnalysis" object to the original client data JSON string.
+#     3.  **SELF-VALIDATION CHECKLIST (Confirm EACH. If 'NO', FIX JSON then re-validate):**
+#         - [ ] Output is single, valid JSON string? All original data preserved? "assetLiabilityAnalysis" key exists?
+#         - [ ] All required fields in "assetLiabilityAnalysis" (as listed in G.1 & `expected_output`) present and populated?
+#     4.  **Final Answer:** If ALL checks pass, provide ONLY this complete augmented JSON string.
+#         🚫 No other text.
+
+#   expected_output: >
+#     A single, valid JSON string representing the original client data, augmented with a new
+#     "assetLiabilityAnalysis" section. This section MUST be a JSON object containing all keys
+#     as detailed below, populated with results from the corresponding steps:
+#     '{
+#       // ... (all original client data keys and values from context preserved here) ...
+#       "assetLiabilityAnalysis": {
+#         "total_asset_value_numeric": <float_from_A_parsed>,
+#         "total_asset_value_string": "<string_from_A_tool_output>",
+#         "individual_original_asset_proportions_list_string": "<json_string_from_F_tool_output>",
+#         "total_liabilities_value_numeric": <float_from_B_parsed>,
+#         "total_liabilities_value_string": "<string_from_B_tool_output>",
+#         "net_worth_numeric": <float_from_C_parsed>,
+#         "net_worth_string": "<string_from_C_tool_output>",
+#         "asset_classification_details_string": "<json_string_from_D_tool_output>",
+#         "asset_bucket_proportions_string": "<json_string_from_E_tool_output>"
+#       }
+#     }'
+#   agent: AssetLiabilityAnalyzerAgent
+
+
+# ############################# Task 5a : Goal Calculation Task ##############################
+# goal_calculation_task:
+#   description: >
+#     Analyze the provided client data JSON string from your context.
+#     Your task is to identify ALL relevant financial goals and calculate their initial timeline parameters.
+#     Perform the following for EACH goal (Retirement, and Education UG/PG for EACH child):
+#     1.  Determine the `target_year` for the goal.
+#     2.  Use the 'GoalSettingMCPTool' with the 'calculate_duration_in_years' operation to find the `time_remaining_years`.
+#     3.  Collect any `estimated_current_cost_input` from the client data for that goal.
+
+#     Your final output MUST NOT be the full client data. It must be a NEW, simple JSON string
+#     containing a list of these preliminary goal objects.
+#   expected_output: >
+#     A simple JSON string containing a single key "preliminary_goals", which holds a list of objects.
+#     Each object must represent one identified goal and contain: `goal_name`, `goal_type`,
+#     `target_year`, `time_remaining_years`, and `estimated_current_cost_input`.
+#     Example:
+#     '{"preliminary_goals": [
+#       {"goal_name": "Kahira's UG Education Fund", "goal_type": "Education_UG", "target_year": 2036, "time_remaining_years": 13, "estimated_current_cost_input": 4000000.0},
+#       {"goal_name": "Rohit's Retirement Planning", "goal_type": "Retirement", "target_year": 2040, "time_remaining_years": 17, "estimated_current_cost_input": null}
+#     ]}'
+#   agent: goal_calculator
+
+# ############################# Task 5b : Goal Aggregation Task ############################
+# goal_aggregation_task:
+#   description: >
+#     Your critical task is to finalize the client's financial goals and integrate them into the master data file.
+#     You will receive the full, augmented client data string in your context. Within that context is the output
+#     from the 'goal_calculation_task', which contains a JSON string with 'preliminary_goals'.
+
+#     Your process MUST be:
+#     1.  Parse the `preliminary_goals` data from the context.
+#     2.  For EACH goal in that list that has a current cost, use the 'GoalSettingMCPTool' with the
+#         'project_future_cost' operation to calculate its `estimated_future_cost_string`.
+#     3.  Assemble a complete list of goal objects, now including the future cost projections.
+#     4.  Sort this final list of goals by 'target_year' (ascending), then by type (Education, Retirement).
+#     5.  Take the original client data JSON string from context, and augment it by adding a new top-level key,
+#         "financialGoals", containing your final, sorted list of goal objects.
+
+#     **Final Validation:** Before finishing, ensure your output is a single, valid JSON string that includes ALL
+#     original client data plus the new, correctly structured and sorted "financialGoals" list.
+#   expected_output: >
+#     The complete, original client data JSON string, augmented with a new top-level key "financialGoals".
+#     This key must contain a list of fully-populated goal objects, including projected future costs,
+#     and must be sorted correctly by target_year.
+#     Example of the final structure:
+#     '{
+#         // ... all original client data preserved here ...
+#         "financialGoals": [
+#           {
+#             "goal_name": "Kahira's UG Education Fund",
+#             "goal_type": "Education_UG",
+#             "target_year": 2036,
+#             "time_remaining_years": 13,
+#             "estimated_current_cost_input": 4000000.0,
+#             "assumed_inflation_rate_pa_for_fv": 0.09,
+#             "estimated_future_cost_string": "Projected future cost for..."
+#           },
+#           // ... other sorted goals ...
+#         ]
+#     }'
+#   agent: goal_aggregator
+
+
+####################################################################################################################################################################################
+                                                                      # Pydantic Approach
+####################################################################################################################################################################################
+
+
+# # src/armstrong/config/tasks.yaml
+
+# ############################# Task 1: Data Extraction Task ##############################
+# data_extraction_task:
+#   description: >
+#     Process the financial data from the input sheet: '{input_sheet}'.
+#     Your ONLY objective is to meticulously extract all raw data and structure it into a valid
+#     Pydantic object conforming to the `InitialClientData` model.
+
+#     **Strict Formatting Rules:**
+#     1.  ALL top-level keys in your output JSON (e.g., 'personal_information', 'family_information')
+#         MUST be in snake_case.
+#     2.  ALL keys within ANY nested dictionaries (e.g., within 'personal_information', use 'name', 'date_of_birth';
+#         within each asset dictionary, use 'type', 'present_value', 'monthly_contribution') MUST also be in snake_case.
+#     3.  Crucially, for all items within the 'assets' list, the key representing the current monetary value
+#         MUST be exactly 'present_value'.
+#     4.  Do NOT add any fields or keys that are not explicitly part of the `InitialClientData` model
+#         definition (e.g., do not add 'client_profile', 'asset_liability_analysis', etc.).
+#     5.  Adhere strictly to the field names and data types defined in the `InitialClientData` Pydantic model.
+#         Convert numerical values to appropriate float or int types where possible.
+
+#   expected_output: >
+#     A single, valid JSON string representing a fully populated `InitialClientData` Pydantic object.
+#     All keys at all levels of the JSON structure MUST be in snake_case.
+#     The structure must strictly follow the `InitialClientData` model, including consistent use of
+#     'present_value' for asset current values.
+#     A structural example (illustrative, actual values will vary):
+#     '{
+#       "personal_information": {"name": "string", "date_of_birth": "YYYY-MM-DD", "year_of_birth": "int", ...},
+#       "family_information": {"spouse_year_of_birth": "int", ...},
+#       "expenses": {"household_expenses_monthly": "float", ...},
+#       "assets": [{"type": "string", "present_value": "float", "monthly_contribution": "float_or_null", ...}, ...],
+#       "liabilities": {"loans": [{"type": "string", "outstanding_amount": "float", ...}, ...]},
+#       "future_plans": {"some_plan_name": {"time_years": "int", "amount_required_today": "float", ...}, ...},
+#       "miscellaneous": {"retirement_age": "int", "current_year": "int", ...}
+#     }'
+
+
+############################# Task 1: Data Extraction Task ##############################
+data_extraction_task:
+  description: >
+    You are an expert in extracting structured financial data from unstructured text or spreadsheets.
+    Your task is to accurately parse the provided input sheet {input_sheet} and extract **all relevant financial data** 
+    into a single, structured JSON object.
+
+    ✅ **Key Requirements for the JSON Output:**
+    - All dictionary keys at every nesting level must be in **strict snake_case** (e.g., 'personal_information', 'date_of_birth').
+    - Lists of assets must have objects where the current monetary value is under the key `'present_value'`.
+    - Any 'type' fields (e.g., within assets, loans) must be normalized to snake_case (e.g., 'mutual_fund', 'home_loan').
+    - The `liabilities` section must include a key `'loans'` that contains a list of loan objects.
+    - Data must be organized to align precisely with the structure of the `InitialClientData` Pydantic model, with 
+      sections including `'personal_information'`, `'family_information'`, `'expenses'`, `'assets'`, `'liabilities'`, 
+      `'future_plans'`, and `'miscellaneous'`.
+    - Capture **all information accurately**; if there's uncertainty between snake_case and raw extraction, prioritize
+      capturing the data correctly, but the final output must still go through snake_case conversion.
+
+    🚩 **MANDATORY FINAL STEP:**
+    After forming your initial JSON extraction:
+    1. **Call the tool `JsonSnakeCaseConverterTool` exactly ONCE.**
+    2. Pass the entire extracted JSON string as the `'json_string_data'` argument.
+    3. This tool will recursively convert all keys to snake_case, normalize specific keys like `'present_value'`, 
+       and ensure string values such as `'type'` fields are in snake_case.
+
+    🔥 **IMPORTANT:**
+    Your **FINAL OUTPUT must be the exact JSON string returned by `JsonSnakeCaseConverterTool`.** 
+    - Do not prepend, append, or surround it with any explanation, commentary, or Markdown formatting.
+    - The output must be a clean, parseable JSON string, suitable for direct ingestion by the `InitialClientData` Pydantic model.
+
+  expected_output: >
+    A single, valid JSON string with:
+    - All keys in **strict snake_case**.
+    - Correct standardized keys, including `'present_value'` for assets and snake_case string values for all `'type'` fields.
+    - Structured exactly as follows:
+
+    {
+      "personal_information": {
+        "name": "string",
+        "date_of_birth": "YYYY-MM-DD",
+        "year_of_birth": "int",
+        ...
+      },
+      "family_information": {
+        "spouse_year_of_birth": "integer_or_null",
+        ...
+      },
+      "expenses": {
+        "household_expenses_monthly": "float",
+        ...
+      },
+      "assets": [
+        {
+          "type": "provident_fund",
+          "present_value": "float",
+          "monthly_contribution": "float_or_null",
+          ...
+        },
+        ...
+      ],
+      "liabilities": {
+        "loans": [
+          {
+            "type": "car_loan",
+            "outstanding_amount": "float",
+            ...
+          },
+          ...
+        ]
+      },
+      "future_plans": {
+        "coast_retirement": {
+          "time_years": "integer_or_null",
+          ...
+        },
+        ...
+      },
+      "miscellaneous": {
+        "retirement_age": "integer_or_null",
+        "current_year": "integer_or_null",
+        ...
+      }
+    }
+
+    🔸 This JSON must fully conform to the `InitialClientData` schema in both key names and hierarchical structure.
+    🔸 No extra fields outside this structure unless absolutely necessary to capture data that does not fit otherwise.
+    🔸 The output must be fully parseable JSON — no Markdown syntax (like ```json), no explanations — just raw JSON.
+
+  agent: data_extractor
+
+############################# Task 2: Client Profiling Task ##############################
+client_profiling_task:
+  description: >
+    You will receive `initial_client_data_json` (a JSON string of `InitialClientData` from the previous task)
+    as context. Your mission is to produce a fully augmented `FullClientData` Pydantic object.
+
+    **Your Strict 3-Step Process:**
+
+    1.  **CALCULATE PROFILE ELEMENTS:**
+        *   Call the `ComprehensiveProfileCalculatorTool` exactly ONCE.
+        *   Pass the `initial_client_data_json` (from your context) as the 'client_data_json' argument for this tool.
+            The `ComprehensiveProfileCalculatorTool` expects this input string to have all keys in snake_case.
+        *   This tool returns a JSON string of `ClientProfileCalculations` (with snake_case keys).
+        *   Store this returned JSON string as `client_profile_calculations_json`.
+
+    2.  **MERGE DATA:**
+        *   Call the `ClientDataMergeTool` exactly ONCE.
+        *   You MUST provide the following arguments to this tool (ensure all argument keys are snake_case):
+            *   `initial_client_data_json`: Use the `initial_client_data_json` (from your context).
+            *   `client_profile_calculations_json`: Use the `client_profile_calculations_json` you obtained in step 1.
+            *   `asset_liability_analysis_json`: Set this to `null`.
+            *   `financial_goals_json`: Set this to `null`.
+            *   `retirement_plan_json`: Set this to `null`.
+            *   `education_plans_json`: Set this to `null`.
+            *   `debt_management_plan_json`: Set this to `null`.
+            *   `financial_health_audit_json`: Set this to `null`.
+        *   This merge tool will return a JSON string representing the `FullClientData` object, now containing
+            the original data plus the new client profile and children's education profile calculations.
+
+    3.  **FINAL OUTPUT:**
+        *   Your final answer for this task MUST be the exact, unmodified JSON string returned by the `ClientDataMergeTool` in Step 2.
+            DO NOT add any introductory text, concluding remarks, or markdown formatting around the JSON string.
+
+    Ensure all keys and field names remain snake_case throughout your process and in the final output.
+  expected_output: >
+    A single, valid JSON string representing a `FullClientData` Pydantic object.
+    This object must include ALL original data fields from `InitialClientData`
+    AND the newly populated `client_profile` and `children_education_profiles_calculations` attributes.
+    All other top-level analytical sections of `FullClientData` (like `asset_liability_analysis`, `financial_goals`, etc.)
+    MUST be present and explicitly set to `null`.
+    All keys and field names in the final JSON object and any nested structures must be in snake_case.
+    The structure should strictly conform to the `FullClientData` Pydantic model.
+    A structural example (illustrative, actual values will vary):
+    '{
+      "personal_information": { "...": "..." },
+      "family_information": { "...": "..." },
+      "expenses": { "...": "..." },
+      "assets": [ ... ],
+      "liabilities": { "...": "..." },
+      "future_plans": { "...": "..." },
+      "miscellaneous": { "...": "..." },
+      "client_profile": { "current_client_age": "int_or_null", "years_to_retirement": "int_or_null", "retirement_horizon_classification": "string_or_null", "equity_exposure_status": "string_or_null", "risk_appetite": "string_or_null" },
+      "children_education_profiles_calculations": [ { "child_identifier": "string", "child_current_age": "int", ... } ],
+      "asset_liability_analysis": null,
+      "financial_goals": null,
+      "retirement_plan": null,
+      "education_plans": null,
+      "debt_management_plan": null,
+      "financial_health_audit": null
+    }'
+  agent: ClientProfilerAgent
+
+############################# Task 3: Asset & Liability Analysis Task ##############################
+asset_liability_analysis_task:
+  description: >
+    You will receive `current_full_client_data_json` (a JSON string representing the `FullClientData`
+    object from the previous task, which includes initial data and client profile details) as context.
+    Your mission is to perform a complete asset and liability analysis and then integrate this
+    analysis into this `FullClientData`.
+
+    **Follow this EXACT 3-Step Process:**
+
+    1.  **CALCULATE ASSET & LIABILITY ANALYSIS:**
+        *   Call the `ComprehensiveAssetLiabilityAnalysisTool` exactly ONCE.
+        *   For its `client_data_json` argument, you MUST pass the `current_full_client_data_json`
+            (from your context). This tool needs data like 'assets' (with 'present_value' keys) and 'liabilities' from it,
+            expecting all keys to be in snake_case.
+        *   The tool will return a JSON string. This string contains ONLY the newly calculated
+            asset and liability analysis elements (conforming to the `AssetLiabilityAnalysis` Pydantic model),
+            all using snake_case keys.
+        *   Store this returned JSON string as `new_asset_liability_analysis_json`.
+
+    2.  **MERGE DATA INTO `FullClientData`:**
+        *   Call the `ClientDataMergeTool` exactly ONCE.
+        *   You MUST provide the following arguments to this tool (ensure all argument keys are snake_case):
+            *   `initial_client_data_json`: Use the `current_full_client_data_json` (from your context).
+               (This contains existing `client_profile` and `children_education_profiles_calculations` data which must be preserved).
+            *   `client_profile_calculations_json`: Set this to `null` (as you are not recalculating profile in this task).
+            *   `asset_liability_analysis_json`: Use the `new_asset_liability_analysis_json` you obtained in Step 1.
+            *   `financial_goals_json`: Set this to `null`.
+            *   `retirement_plan_json`: Set this to `null`.
+            *   `education_plans_json`: Set this to `null`.
+            *   `debt_management_plan_json`: Set this to `null`.
+            *   `financial_health_audit_json`: Set this to `null`.
+        *   This merge tool will return a JSON string representing the updated `FullClientData` object,
+            now containing your asset and liability analysis, while preserving previously added data.
+
+    3.  **FINAL OUTPUT:**
+        *   Your final answer for this task MUST be the exact, unmodified JSON string returned by the
+            `ClientDataMergeTool` in Step 2.
+            DO NOT add any introductory text, concluding remarks, or markdown formatting around the JSON string.
+
+    Ensure all keys and field names remain snake_case throughout your inputs to tools and in your final output.
+  expected_output: >
+    A single, valid JSON string representing a `FullClientData` Pydantic object.
+    This object must include ALL previously existing data from the input context (initial data, client profile)
+    AND the newly populated `asset_liability_analysis` attribute.
+    All keys and field names in the final JSON object and any nested structures must be in snake_case.
+    All other top-level analytical sections not yet calculated (e.g., `financial_goals`, `retirement_plan`)
+    MUST be present (if they were in the input context) or set to null.
+    The structure should strictly conform to the `FullClientData` Pydantic model.
+    A structural example (illustrative, showing new addition and preserved prior data):
+    '{
+      "personal_information": { "...": "..." },
+      "family_information": { "...": "..." },
+      // ... other original data fields ...
+      "client_profile": { "...": "..." },               // Preserved from context
+      "children_education_profiles_calculations": [ ... ], // Preserved from context
+      "asset_liability_analysis": {          // NEWLY POPULATED by this task
+        "total_asset_value_numeric": "float",
+        "total_liabilities_value_numeric": "float",
+        "net_worth_numeric": "float",
+        "asset_classification_summary": {"liquid_assets": "float", "retirement_assets": "float", "fixed_assets": "float"},
+        "asset_bucket_proportions": {"liquid_assets": "float", ...},
+        "individual_asset_proportions": [{"asset_category": "string", "value": "float", "proportion_percentage": "float"}, ...]
+      },
+      "financial_goals": null,                 // Still null
+      "retirement_plan": null,                 // Still null
+      // ... etc.
+    }'
+  agent: AssetLiabilityAnalyzerAgent
+
+
+############################# Task 4a: Goal Quantification Task ##############################
+goal_quantification_task:
+  description: >
+    You are a Financial Goal Quantification Specialist.
+    You will receive `current_full_client_data_json` as context. This context is a **valid JSON string**
+    representing a `FullClientData` object (from the previous asset & liability analysis task).
+    Your mission is to identify and quantify all client financial goals using this data.
+
+    **Your Strict Process:**
+
+    1.  **PREPARE AND CALL THE `ComprehensiveGoalProcessingTool`:**
+        *   You MUST call the `ComprehensiveGoalProcessingTool` exactly ONCE.
+        *   To do this, you need to construct an `Action Input`. The `Action Input` MUST be a valid JSON object itself.
+        *   This `Action Input` JSON object MUST contain exactly two keys:
+            1.  `"client_data_json"`:
+                *   The value for this key MUST be the **exact, unaltered JSON string** that you received as
+                  `current_full_client_data_json` from your context.
+                *   **CRUCIAL:** This value must be a STRING that starts with `{` and ends with `}`.
+                *   Do NOT parse this context string into a Python dictionary and then pass the dictionary.
+                *   Do NOT re-stringify or add extra escape characters to this context string.
+                *   Simply take the string from your context and use it directly as the string value for this key.
+            2.  `"default_inflation_rate_pa"`:
+                *   The value for this key MUST be a floating-point number representing the annual inflation rate.
+                *   You should use `0.06` for this value (representing 6% inflation) unless specifically
+                  instructed otherwise or if clear context suggests a different rate.
+
+        *   **Correct Example of `Action Input` Structure:**
+            ```json
+            {
+              "client_data_json": "<<The full, complete, and valid JSON string from your 'current_full_client_data_json' context goes here, starting with { and ending with }>>",
+              "default_inflation_rate_pa": 0.06
+            }
+            ```
+        *   **Incorrect Example (DO NOT DO THIS for `client_data_json` value):**
+            `{"client_data_json": {"personal_information": ...} }` (This is passing a dictionary, not a string)
+
+        *   The `ComprehensiveGoalProcessingTool` will process this input and return a new JSON string.
+            This returned string will be structured like:
+            `{"quantified_financial_goals": [List of FinancialGoal dictionary objects]}`.
+            This list contains all identified goals with their timelines and projected future costs calculated.
+            All keys within this returned JSON will be in `snake_case`.
+
+    2.  **FINAL OUTPUT:**
+        *   Your final answer for this task MUST be the **exact, unmodified JSON string** that was
+            returned to you as the 'Observation' from your single call to `ComprehensiveGoalProcessingTool`.
+        *   Do NOT add any introductory text, explanations, concluding remarks, or markdown
+            formatting (like ```json ... ```) around this final JSON string.
+        *   The output must be directly parsable into the `QuantifiedGoalsOutput` Pydantic model.
+
+    If the tool call results in an error, your final answer should be a JSON string describing the error, for example:
+    `{"error": "Tool call failed", "details": "<Error message from tool>"}`. Do not attempt to retry if the tool itself reports an error in its output.
+
+  expected_output: >
+    A single, valid JSON string representing a `QuantifiedGoalsOutput` Pydantic object (if successful)
+    OR a JSON string indicating an error from the tool.
+    If successful, the structure MUST be:
+    '{
+      "quantified_financial_goals": [
+        {
+          "goal_name": "<string_snake_case_value>",
+          "goal_type": "<string_snake_case_value>",
+          "target_year": "<integer_value>",
+          "time_remaining_years": "<integer_value>",
+          "estimated_current_cost_input": "<float_value_or_null>",
+          "assumed_inflation_rate_pa_for_fv": "<float_value_or_null>",
+          "estimated_future_cost_string": "<string_value_or_null>",
+          "priority": null,
+          "feasibility_notes": null
+        },
+        // ... potentially more goal objects following the same FinancialGoal structure
+      ]
+    }'
+  agent: goal_quantification_agent
+
+
+############################# Task 4b: Goal Strategy and Integration Task ##############################
+goal_strategy_and_integration_task:
+  description: >
+    You are a Financial Goal Prioritization and Feasibility Strategist.
+    You will receive two main pieces of information as context:
+    1.  `current_full_client_data_json`: This is a JSON string representing the current `FullClientData`
+        (output from the asset_liability_analysis_task). It contains initial client data,
+        client profile, and asset & liability analysis. Use this for overall financial context.
+    2.  `quantified_goals_output_json`: This is a JSON string representing `QuantifiedGoalsOutput`
+        (output from the goal_quantification_task). It contains a key
+        `"quantified_financial_goals"` whose value is a list of goal objects.
+
+    Your mission is to:
+    A. Apply strategic prioritization and feasibility notes to the quantified goals.
+    B. Integrate this strategized list of goals into the `FullClientData`.
+
+    **Follow this EXACT 3-Step Process:**
+
+    **STEP 1: STRATEGIZE FINANCIAL GOALS (Your internal reasoning and preparation)**
+        a.  **Parse Inputs:** Mentally (or in your scratchpad) parse the `quantified_goals_output_json` string to access
+            the list under the `"quantified_financial_goals"` key. Also, parse `current_full_client_data_json`
+            to understand the client's overall financial picture (net worth, assets, liabilities, income/expenses if available, risk profile).
+        b.  **Iterate and Strategize Each Goal:** For each goal object in the `quantified_financial_goals` list:
+            i.  **Assign Priority:** Based on your financial planning expertise, the goal's nature (e.g., retirement,
+                emergency fund, education vs. discretionary), its timeline (time_remaining_years), and the client's overall
+                financial context, assign a `priority` string. Choose from: "Critical", "Important", "Desirable", "Aspirational".
+            ii. **Add Feasibility Notes:** Based on the goal's projected future cost, the client's financial capacity
+                (from `current_full_client_data_json`), and its priority, add concise `feasibility_notes` string.
+                Examples: "Achievable with current savings rate.", "Requires focused savings plan.",
+                "Challenging; may need to defer or adjust other goals.", "Currently unrealistic without significant income increase."
+            iii.Keep all other existing fields of the goal object (`goal_name`, `goal_type`, `target_year`,
+                `time_remaining_years`, `estimated_current_cost_input`, `assumed_inflation_rate_pa_for_fv`,
+                `estimated_future_cost_string`) exactly as they were.
+        c.  **Construct `strategized_financial_goals_list_json`:**
+            *   Assemble the updated list of goal dictionaries (now including your added `priority`
+              and `feasibility_notes` for each goal) into a **JSON array string**.
+            *   **Crucial:** This string itself MUST be a valid JSON array, starting with `[` and ending with `]`.
+              Example: `[{"goal_name": "Retirement", ..., "priority": "Critical", "feasibility_notes": "..."}, {"goal_name": "Vacation", ...}]`
+            *   Do NOT wrap this list inside another object like `{"financial_goals": [...]}` for this intermediate string.
+
+    **STEP 2: MERGE STRATEGIZED GOALS INTO `FullClientData` (Tool Call)**
+        *   You MUST call the `ClientDataMergeTool` exactly ONCE.
+        *   To do this, construct an `Action Input` JSON object. This `Action Input` JSON object
+            itself MUST have the following keys:
+            1.  `"initial_client_data_json"`: The value MUST be the **exact, unaltered JSON string** you
+                received as `current_full_client_data_json` from your context.
+            2.  `"financial_goals_json"`: The value MUST be the **exact JSON array string** you created in
+                Step 1c (`strategized_financial_goals_list_json`).
+            3.  The following keys MUST all be present in your `Action Input` and their values MUST be `null` (JSON null):
+                `"client_profile_calculations_json"`, `"asset_liability_analysis_json"`,
+                `"retirement_plan_json"`, `"education_plans_json"`,
+                `"debt_management_plan_json"`, `"financial_health_audit_json"`.
+
+        *   **Correct Example of `Action Input` Structure for `ClientDataMergeTool`:**
+            ```json
+            {
+              "initial_client_data_json": "<<The full JSON string from 'current_full_client_data_json' context>>",
+              "client_profile_calculations_json": null,
+              "asset_liability_analysis_json": null,
+              "financial_goals_json": "<<The JSON array string of strategized goals from Step 1c, e.g., '[{...},{...}]'>>",
+              "retirement_plan_json": null,
+              "education_plans_json": null,
+              "debt_management_plan_json": null,
+              "financial_health_audit_json": null
+            }
+            ```
+        *   The `ClientDataMergeTool` will return a new, updated JSON string representing the `FullClientData` object,
+            now including the `financial_goals` list with your added priorities and notes.
+
+    **STEP 3: FINAL OUTPUT:**
+        *   Your final answer for this task MUST be the **exact, unmodified JSON string** that was
+            returned to you as the 'Observation' from your single call to `ClientDataMergeTool` in Step 2.
+        *   Do NOT add any introductory text, explanations, concluding remarks, or markdown
+            formatting (like ```json ... ```) around this final JSON string.
+        *   The output must be directly parsable into the `FullClientData` Pydantic model.
+
+    Ensure all keys and field names in any JSON you handle or produce remain `snake_case`.
+    If `quantified_goals_output_json` contains an error or is not a valid structure, your Step 1 should acknowledge this, and your final output should be a JSON object like `{"error": "Could not process goals due to invalid input from previous step.", "details": "<details of the error if available>"}`.
+
+  expected_output: >
+    A single, valid JSON string representing a `FullClientData` Pydantic object.
+    This object must include ALL previously existing data from the `current_full_client_data_json` context
+    AND the newly populated `financial_goals` list (a list of `FinancialGoal` objects).
+    Each `FinancialGoal` object within this list MUST now include `priority` and `feasibility_notes` strings.
+    All other future analytical sections (like `retirement_plan`, `education_plans`, etc.) MUST be `null`
+    or reflect their state from the `current_full_client_data_json` if they were already populated (though typically they are null at this stage).
+    All keys and field names in the final JSON object and any nested structures must be in `snake_case`.
+    The structure must strictly conform to the `FullClientData` Pydantic model.
+  agent: goal_strategy_agent
+
+
+
+############################# Task 6 : retirement_planning_task ##############################
+retirement_planning_task:
+  description: >
+    Your objective is to create a comprehensive and actionable retirement plan for the client.
+    You must synthesize information from multiple prior analyses, all available in your context:
+    - The client's specific retirement goal details (target year, years remaining) from the "financialGoals" section of the 'goal_setting_task' output.
+    - The client's current asset information, particularly the value of assets in the "retirement_assets" bucket, from the "assetLiabilityAnalysis" section of the 'asset_liability_analysis_task' output.
+    - The client's profile, including current age and years to retirement, from the "clientProfile" section of the 'client_profiling_task' output.
+
+    Adhere strictly to the calculation logic and guidelines from the Armstrong Capital General Logic Framework, especially concerning 'Goal Feasibility Reference', 'Savings Gap Analysis', and the 'Step-Up Savings Logic Framework'. All quantitative projections and calculations must be performed using the 'MCP Financial Calculator Tool'.
+
+    **Detailed Retirement Planning Steps:**
+
+    1.  **Estimate Required Retirement Corpus:**
+        *   **Inputs required by MCP Tool:**
+            *   `client_current_annual_expenses`: (If not directly in client data, estimate this, e.g., based on monthly household expenses x 12 from 'data_extraction_task' output. State your assumption.)
+            *   `expense_replacement_ratio_in_retirement`: (e.g., 70-80%, state assumption).
+            *   `years_to_retirement`: (From 'clientProfile').
+            *   `retirement_duration_years`: (e.g., life expectancy - retirement age, state assumption, e.g., 85 - retirement_age).
+            *   `pre_retirement_inflation_rate_pa`: (State assumption, e.g., 6%).
+            *   `post_retirement_inflation_rate_pa`: (State assumption, e.g., 5%).
+            *   `post_retirement_expected_investment_return_rate_pa`: (Rate at which corpus is expected to grow post-retirement, state assumption, e.g., 7%).
+        *   **Action:** Instruct the 'MCP Financial Calculator Tool' to calculate the total corpus needed at the start of retirement using these inputs. Example: "Calculate_retirement_corpus_needed with provided parameters."
+
+    2.  **Project Future Value (FV) of Existing Retirement Assets:**
+        *   **Inputs required by MCP Tool:**
+            *   `current_value_of_retirement_assets`: (Sum of assets in 'retirement_assets' bucket from 'assetLiabilityAnalysis').
+            *   `years_to_retirement`: (From 'clientProfile').
+            *   `expected_annual_growth_rate_pa`: (Average expected return on these existing assets until retirement, state assumption, e.g., 8-10%).
+        *   **Action:** Instruct the 'MCP Financial Calculator Tool' to calculate the future value. Example: "Calculate_fv_of_investments for current_retirement_assets."
+
+    3.  **Retirement Gap Analysis & Feasibility Rating:**
+        *   **Inputs required by MCP Tool:**
+            *   `required_retirement_corpus`: (From step 1).
+            *   `fv_of_existing_retirement_assets`: (From step 2).
+        *   **Action:**
+            a.  Instruct the 'MCP Financial Calculator Tool' to calculate the `retirement_gap` (Required Corpus - FV of Existing Assets).
+            b.  Based on the `retirement_gap` and `required_retirement_corpus`, determine the feasibility rating (Feasible: Gap <= 10% of corpus; Stretch: 10-30%; Unrealistic: >30%) as per Page 7 of the Framework. This might be a rule you apply or ask the tool to apply if it has such a function.
+
+    4.  **Calculate Required Additional Monthly Savings (SIP without Step-Up):**
+        *   **Inputs required by MCP Tool:**
+            *   `retirement_gap`: (From step 3a, if positive indicating a shortfall).
+            *   `years_to_retirement`: (From 'clientProfile').
+            *   `expected_annual_investment_return_rate_pa_on_new_savings`: (Rate for new SIPs, state assumption, e.g., 10-12%).
+        *   **Action:** Instruct the 'MCP Financial Calculator Tool' to determine the monthly investment needed to bridge the gap. Example: "Calculate_required_monthly_sip for retirement_gap."
+
+    5.  **Model Step-Up Savings Projection (Recommended):**
+        *   **Inputs required by MCP Tool:**
+            *   `initial_required_monthly_sip`: (From step 4).
+            *   `years_to_retirement`: (From 'clientProfile').
+            *   `client_current_age`: (From 'clientProfile' to determine max step-up rate based on Page 9 of Framework: 30-40: up to 15%, 40-50: up to 10%, >50: up to 5%).
+            *   `chosen_annual_step_up_percentage`: (Select an appropriate % based on client's age group and framework, state this choice).
+            *   `expected_annual_investment_return_rate_pa_on_new_savings`: (Same as step 4).
+        *   **Action:** Instruct the 'MCP Financial Calculator Tool' to project the corpus achievable with these step-up savings. Example: "Project_corpus_with_step_up_sip using provided parameters."
+
+    **Tool Usage:** For each step, clearly define the operation and provide all necessary parameters to the 'MCP Financial Calculator Tool'. Explicitly state any assumptions made (e.g., inflation rates, rates of return, life expectancy).
+
+    **Output Requirement:** Your final output MUST be the original client data JSON string provided in your context, augmented with a new top-level key, "retirementPlan", which contains all the calculated details, assumptions, and recommendations as specified in the 'expected_output' section. Ensure monetary values are appropriately formatted.
+  expected_output: >
+    The original client data JSON string, augmented with a "retirementPlan" section.
+    The "retirementPlan" section should be a JSON object detailing:
+    {
+      "retirement_goal_details": { // Extracted from goal_setting_task output for retirement goal
+        "target_year": <YYYY>,
+        "years_remaining": <integer>
+      },
+      "estimated_required_corpus_at_retirement": "<float_value_formatted_lakhs_crores>",
+      "assumptions_for_corpus_calculation": {
+        "client_current_annual_expenses_assumed": <float_value>,
+        "expense_replacement_ratio_in_retirement_assumed_percent": <float_value>,
+        "years_to_retirement_used": <integer>,
+        "retirement_duration_years_assumed": <integer>,
+        "pre_retirement_inflation_rate_pa_assumed_percent": <float_value>,
+        "post_retirement_inflation_rate_pa_assumed_percent": <float_value>,
+        "post_retirement_expected_investment_return_rate_pa_assumed_percent": <float_value>
+      },
+      "projected_fv_of_existing_retirement_assets": "<float_value_formatted_lakhs_crores>",
+      "assumptions_for_fv_existing_assets": {
+        "current_value_of_retirement_assets_used": <float_value>,
+        "expected_annual_growth_rate_pa_assumed_percent": <float_value>
+      },
+      "retirement_gap_value": "<float_value_formatted_lakhs_crores_positive_if_shortfall>",
+      "retirement_goal_feasibility_rating": "Feasible/Stretch/Unrealistic",
+      "required_additional_monthly_sip_no_step_up": "<float_value_formatted>",
+      "assumptions_for_sip_calculation": {
+         "expected_annual_investment_return_rate_pa_on_new_savings_assumed_percent": <float_value>
+      },
+      "step_up_savings_projection": { // If modeled
+        "chosen_annual_step_up_percentage": <float_value_percent>,
+        "projected_corpus_with_step_up": "<float_value_formatted_lakhs_crores>",
+        "notes_on_step_up_feasibility": "e.g., Based on client age X (from profile), a Y% annual step-up is considered feasible as per framework."
+      },
+      "key_recommendations_for_retirement": [
+        "e.g., Commence a monthly SIP of ₹Z immediately towards retirement, aiming for an annual step-up of Y%.",
+        "e.g., Review and potentially rebalance existing retirement assets to align with a growth-oriented strategy given the long horizon."
+      ]
+    }
+  agent: RetirementPlannerAgent
+
+
+
+############################# Task 7 : education_planning_task ##############################
+education_planning_task:
+  description: >
+    Your objective is to create detailed education funding plans for each of the client's children,
+    covering both Undergraduate (UG) and Postgraduate (PG) levels where applicable.
+    You must synthesize information from multiple prior analyses, all available in your context within
+    the augmented client data JSON string:
+    - Child-specific details (name/identifier, current age or DOB) and any stated education goals from the "financialGoals" and original "personal_details" (or equivalent) sections from the 'goal_setting_task' and 'data_extraction_task' outputs.
+    - Client's overall financial asset details (total financial assets, net worth) from the "assetLiabilityAnalysis" section of the 'asset_liability_analysis_task' output.
+    - Client's current age from the "clientProfile" section of the 'client_profiling_task' output.
+    - The retirement plan summary, specifically the 'retirement_gap_value' and 'retirement_goal_feasibility_rating', from the "retirementPlan" section of the 'retirement_planning_task' output.
+
+    For EACH child identified in the client data, and for EACH relevant education level (UG and PG, unless specified otherwise), perform the following steps. Adhere strictly to the 'Educational planning' and 'Retirement Cross-Check' logic from the Armstrong Capital General Logic Framework (Pages 8-9). All quantitative calculations must be performed using the 'MCP Financial Calculator Tool'.
+
+    **Per Child, Per Education Level (UG/PG) Planning Steps:**
+
+    1.  **Determine "Years Left" for Education Goal:**
+        *   Inputs for MCP Tool: `target_education_level_default_age` (UG=18, PG=22), `child_current_age` (from "clientProfile" or calculated by MCP Tool from child's DOB in "personal_details").
+        *   Action: Instruct MCP Tool: "Calculate_years_left_for_education using target_education_age and child_current_age."
+
+    2.  **Define Education Type (Domestic vs. International) - Apply for UG and PG separately:**
+        *   Inputs for MCP Tool/Logic: `years_left_for_this_goal` (from step 1), `client_total_financial_assets` (from "assetLiabilityAnalysis"), `client_net_worth` (from "assetLiabilityAnalysis"), `retirement_goal_gap_status` (derived from 'retirement_gap_value' in "retirementPlan" - e.g., "significant_gap_exists" or "no_significant_gap").
+        *   Rules (Framework Page 8):
+            *   If Years Left < 5: Check if financial assets ≥ ₹2 Cr. If yes, suggest foreign (US/UK); else domestic.
+            *   If Years Left ≥ 5: If net worth < ₹2 Cr, default to domestic UG & PG. If net worth ≥ ₹2 Cr, suggest domestic UG & international PG (US/UK).
+            *   **Critical Exception:** If a substantial `retirement_goal_gap_status` is "significant_gap_exists", then PG international MUST be deprioritized, defaulting to domestic PG.
+        *   Action: Instruct MCP Tool or apply logic: "Determine_education_type_domestic_vs_international using provided parameters and framework rules."
+
+    3.  **Choose Cost Base & Project Future Education Costs (for the determined Education Type):**
+        *   Inputs for MCP Tool: `education_type` (from step 2), `current_cost_base_annual` (Use appropriate average: International - top 10 Engg/MBBS; Domestic - top 20 IIT/NIT/Pvt. State this assumption.), `assumed_annual_inflation_rate_pa` (International: 6-8%; Domestic: 9-10%. State assumption.), `years_left_for_this_goal` (from step 1), `typical_course_duration_years` (e.g., UG Engg=4, PG MBA=2. State assumption.).
+        *   Action: Instruct MCP Tool: "Project_future_education_total_cost for course_duration, using current_annual_cost, inflation_rate, and years_left." This should give the total cost for the entire course duration at the future date. Also, get the cost for one year at that future date.
+
+    4.  **Evaluate Net Future Value (FV) of Existing Dedicated Education Savings (if any for this child/goal):**
+        *   Inputs for MCP Tool: `current_value_of_dedicated_savings` (from client data, if specified per child/goal, e.g., SIPs, Sukanya), `years_left_for_this_goal` (from step 1), `expected_annual_growth_rate_pa_on_savings` (State assumption, e.g., 10%).
+        *   Action: Instruct MCP Tool: "Calculate_fv_of_investments for existing_education_savings." If no dedicated savings, this is 0.
+
+    5.  **Calculate Additional Savings Needed for this Education Goal:**
+        *   Formula: Projected Future Total Cost (from step 3) - FV of Existing Dedicated Savings (from step 4).
+        *   Action: Instruct MCP Tool to perform this subtraction.
+
+    6.  **Determine Required Additional Monthly SIP for this Goal:**
+        *   Inputs for MCP Tool: `additional_savings_needed` (from step 5), `years_left_for_this_goal` (from step 1), `expected_annual_investment_return_rate_pa_on_new_savings` (State assumption, e.g., 10-12%).
+        *   Action: Instruct MCP Tool: "Calculate_required_monthly_sip for education_goal_gap."
+
+    7.  **Apply Prioritization Logic & Retirement Cross-Check Notes (Framework Page 9):**
+        *   Funding Prioritization: Note if current assets or future savings (SIPs, step-up) should be prioritized based on 'Years Left'.
+        *   Retirement Cross-Check Impact: If PG was deprioritized to domestic (in step 2) or if PG is now marked as "aspirational" due to a significant retirement gap, note this clearly. Suggest revisiting PG international if income/savings rise.
+
+    **Tool Usage:** For each child and each education level, meticulously instruct the 'MCP Financial Calculator Tool' for all calculations. Clearly state all assumptions made (cost bases, inflation rates, growth rates, course durations).
+
+    **Output Requirement:** Your final output MUST be the original client data JSON string provided in your context, augmented with a new top-level key, "educationPlans". This key will hold a list, where each item in the list is an object representing the comprehensive education plan for one child, as detailed in the 'expected_output' section.
+  expected_output: >
+    The original client data JSON string, augmented with an "educationPlans" section.
+    The "educationPlans" section should be a JSON list, with one object per child. Each child's object should contain:
+    {
+      "child_identifier": "<e.g., Child1_Kahira or index>",
+      "child_current_age_at_planning": <integer>,
+      "education_goals_details": [ // List containing UG plan and PG plan
+        {
+          "goal_level": "UG" | "PG", // "UG" or "PG"
+          "target_start_age": <integer>, // e.g., 18 for UG, 22 for PG
+          "years_left_to_start": <integer>,
+          "determined_education_type": "Domestic" | "International (US/UK)" | "Domestic (Deprioritized from International due to Ret. Gap)",
+          "assumptions_for_costing": {
+            "assumed_current_annual_cost_base": <float_value>,
+            "cost_base_description": "<e.g., Avg Top 20 Indian Engg Colleges>",
+            "assumed_annual_inflation_rate_pa_percent": <float_value>,
+            "assumed_course_duration_years": <integer>
+          },
+          "projected_future_cost_per_year_at_start": "<float_value_formatted_lakhs_crores>",
+          "projected_future_total_cost_for_duration": "<float_value_formatted_lakhs_crores>",
+          "fv_of_existing_dedicated_savings": "<float_value_formatted_lakhs_crores_or_NA>",
+          "additional_total_corpus_needed": "<float_value_formatted_lakhs_crores>",
+          "required_additional_monthly_sip_for_this_goal": "<float_value_formatted>",
+          "funding_and_priority_notes": "<e.g., High priority. Fund via SIPs. PG marked aspirational due to retirement gap. Suggest revisit post income rise.>",
+          "is_aspirational_due_to_retirement_gap": true | false
+        }
+        // Potentially another object here for PG level for the same child
+      ]
+    }
+  agent: EducationPlannerAgent
+
+
+
+############################# Task 8 : debt_management_task ##############################
+debt_management_task:
+  description: >
+    Your objective is to develop a comprehensive debt management and prepayment strategy for the client.
+    You must synthesize information from several prior analyses, all available in your context within
+    the augmented client data JSON string:
+    - The client's detailed liabilities data from the "current_liabilities" (or equivalent key) section of the 'data_extraction_task' output.
+    - Information on the client's liquid assets from the "assetLiabilityAnalysis" section (specifically "liquid_assets" details) of the 'asset_liability_analysis_task' output.
+    - Client's income details, if available in the original 'data_extraction_task' output (e.g., in a section for income/expenses). If not directly available, you may need to note this limitation or make very conservative, stated assumptions for calculations like EMI burden.
+    - The status and feasibility of high-priority goals (retirement, education) from the "retirementPlan" and "educationPlans" sections of the 'retirement_planning_task' and 'education_planning_task' outputs, respectively, to assess surplus availability.
+
+    Adhere strictly to the Armstrong Capital General Logic Framework (Pages 3-5, covering "Loan Pre-payment analysis", "Debt Repayment Strategy", and "Final Decision Framework"). All quantitative calculations must be performed using the 'MCP Financial Calculator Tool'.
+
+    **Detailed Debt Management Steps:**
+
+    1.  **Consolidate and Evaluate All Existing Loans:**
+        *   Input: The "current_liabilities" list from the client data. This should include loan type, outstanding amount, interest rate, and EMI for each loan.
+        *   Action: List these clearly for your analysis.
+
+    2.  **Formulate Debt Repayment Strategy (Prioritization - Framework Page 4):**
+        *   Action:
+            a.  Identify the loan with the highest interest rate.
+            b.  Advise prioritizing this loan for accelerated repayment, unless early closure penalties are excessive (note if this information is available).
+            c.  If liquidity is tight (see step 3), suggest considering options like refinancing high-cost loans (if details for such an operation are part of the MCP tool's capability).
+            d.  Recommend either the "debt avalanche" (highest interest first - generally preferred financially) or "debt snowball" (lowest balance first - for psychological wins) strategy, defaulting to avalanche unless client behavioural preferences are known.
+
+    3.  **Check for Liquidity Constraints (Framework Page 4):**
+        *   **Calculate EMI Burden:**
+            *   Inputs for MCP Tool: `total_monthly_emis` (sum of all loan EMIs from client data), `client_net_monthly_inflow` (from client data if available, or clearly state if this is an assumption or cannot be calculated).
+            *   Action: Instruct MCP Tool: "Calculate_emi_burden_percentage given total_emis, net_monthly_inflow."
+        *   **Assessment based on EMI Burden:** If calculated EMI burden > 50%, strongly advise against increasing EMI or committing to large lump-sum prepayments.
+        *   **Assess Surplus Availability:** Review if essential living expenses, an emergency fund, and contributions towards high-priority goals (retirement, education - cross-referencing their funding status from "retirementPlan" and "educationPlans") are adequately covered before allocating funds to aggressive debt prepayment.
+        *   **Recommendation:** Consider a SIP towards prepayment or staggered partial payments *only after* funding essential needs and priority goals.
+
+    4.  **Evaluate Existing Liquid Assets for Prepayment (Framework Page 4):**
+        *   Input: List of client's liquid assets (e.g., FDs, liquid funds, idle savings) from "assetLiabilityAnalysis".
+        *   Action: If the client holds low-yielding liquid instruments, suggest using a portion of these to prepay the costliest loan identified in step 2a.
+
+    5.  **Prioritize Home Loan Prepayment (if applicable - Framework Page 4):**
+        *   **Assess Based on EMI Composition:** Note that prepayment is generally more effective in the early years of a home loan when the interest component of the EMI is higher. (This is an advisory point).
+        *   **Assess Based on Tax Benefits:**
+            *   Inputs for MCP Tool: `annual_home_loan_interest_paid`, `annual_home_loan_principal_repaid` (these may need to be calculated by the tool based on loan details or provided in client data), `client_other_80c_investments_value`, `is_home_self_occupied` (from client data).
+            *   Action: Instruct MCP Tool: "Calculate_current_home_loan_tax_benefits_utilized under Sec 24(b) and Sec 80C."
+            *   Advise against over-prepaying if it leads to significant underutilization of these tax deductions, especially if other 80C options are not fully utilized.
+
+    6.  **Prepayment Strategy Options (Framework Pages 4-5):**
+        *   Discuss suitability of:
+            a.  Lump Sum Prepayment (e.g., from bonuses, maturing policies, FDs).
+            b.  SIP Toward Prepayment (investing surplus monthly).
+            c.  EMI Top-up (only if total EMI remains <= 30% of net income and high-priority goals are well-funded).
+
+    7.  **Address Final Decision Framework Questions (Framework Page 5):**
+        *   Based on your analyses from steps 1-6, provide concise answers/assessments for each key question listed in the framework (e.g., "Is a liquidity cushion in place?", "Are high-cost loans addressed?").
+
+    8.  **Recommendation on Scenario Analysis (Framework Page 5):**
+        *   Advise the client (conceptually) that a detailed scenario analysis comparing (a) full prepayment of a specific loan, (b) full investment of available funds, and (c) partial prepayment + continued investing would be beneficial to determine the optimal financial outcome.
+        *   If the 'MCP Financial Calculator Tool' can simulate this, provide a high-level summary of what such a simulation might involve. Example instruction to tool (if capable): "Simulate_loan_prepayment_vs_investment_scenario given loan_details, prepayment_amount, available_investment_amount, investment_return_rate, loan_interest_rate."
+
+    **Tool Usage:** For each calculation (EMI burden, tax benefits, prepayment impact simulations if supported), clearly instruct the 'MCP Financial Calculator Tool', providing all necessary inputs. State any assumptions made, especially regarding client income if not provided.
+
+    **Output Requirement:** Your final output MUST be the original client data JSON string provided in your context, augmented with a new top-level key, "debtManagementPlan", which contains all the analyses, assessments, and recommendations as specified in the 'expected_output' section.
+  expected_output: >
+    The original client data JSON string, augmented with a "debtManagementPlan" section.
+    The "debtManagementPlan" section should be a JSON object detailing:
+    {
+      "debt_overview": [ // List of all active loans
+        {"loan_type": "<e.g., Home Loan>", "outstanding_balance": <float_value>, "interest_rate_pa_percent": <float_value>, "current_emi": <float_value>}
+      ],
+      "prioritized_repayment_strategy": {
+        "recommendation": "<e.g., Implement debt avalanche: Focus on closing Personal Loan (ID: PL123) first due to its 14% interest rate.>",
+        "refinancing_consideration_notes": "<e.g., Consider refinancing Car Loan if a lower rate is available, given current tight liquidity.>"
+      },
+      "liquidity_assessment_for_repayment": {
+        "calculated_emi_burden_percentage": "<float_value_percent or 'Not Calculable: Income data missing'>",
+        "notes_on_constraints": "<e.g., EMI burden is high (55%). Avoid large lump-sum prepayments or increasing EMIs until income rises or other debts are cleared. Ensure emergency fund and priority goal SIPs (Retirement: ₹X, Education: ₹Y) are maintained.>"
+      },
+      "evaluation_of_liquid_assets_for_prepayment": "<e.g., Client holds ₹Z in low-yield FDs. Consider using ₹X from this to partially prepay the highest interest loan.>",
+      "home_loan_prepayment_analysis_if_applicable": { // Populate only if a home loan exists
+        "emi_composition_stage_advice": "<e.g., Home loan is in its early 5th year; prepayment now would be effective in reducing interest significantly.>",
+        "current_tax_benefits_analysis": {
+          "estimated_annual_interest_paid": <float_value>,
+          "estimated_annual_principal_repaid": <float_value>,
+          "tax_saved_under_sec24b_approx": <float_value>,
+          "tax_saved_via_sec80c_from_principal_approx": <float_value>,
+          "notes_on_tax_impact_of_prepayment": "<e.g., Current tax benefits are fully utilized. Aggressive prepayment might lead to underutilization unless other 80C avenues are explored.>"
+        }
+      },
+      "recommended_prepayment_options": {
+        "lump_sum_suitability": "<e.g., Suitable if year-end bonus is received. Prioritize for highest interest loan.>",
+        "sip_toward_prepayment_suitability": "<e.g., Recommended for building a corpus for future partial prepayment of home loan after higher interest debts are cleared.>",
+        "emi_top_up_suitability": "<e.g., Not advisable currently due to high EMI burden. Revisit if income increases by >20%.>"
+      },
+      "final_decision_framework_summary": {
+        "liquidity_cushion_in_place": "Yes/No/Partially - Needs X more in emergency fund.",
+        "high_cost_loans_addressed_status": "Strategy defined for Personal Loan.",
+        "financial_goals_funding_at_risk_by_prepayment": "No, if priority goal SIPs are maintained.",
+        // ... concise answers to other framework questions
+      },
+      "overall_debt_strategy_recommendations_summary": [
+        "Repay Personal Loan (ID: PL123) on priority.",
+        "Maintain systematic investments for long-term goals before aggressive prepayment of lower-interest loans like home loan.",
+        "Build an additional ₹X for the emergency fund before considering lump-sum prepayments."
+      ]
+    }
+  agent: DebtManagerAgent
+
+
+############################# Task 9 : financial_health_audit_task ##############################
+financial_health_audit_task:
+  description: >
+    Your objective is to conduct a comprehensive audit of the client's current financial health.
+    You will synthesize data from various prior analyses and perform specific ratio calculations,
+    all available in your context within the augmented client data JSON string:
+    - Asset values and classifications (e.g., 'total_asset_value', 'liquid_assets' total value, value of Real Estate, FDs, LIC policies, % market-linked/liquid assets) from the "assetLiabilityAnalysis" section of the 'asset_liability_analysis_task' output.
+    - Retirement goal feasibility rating and gap information from the "retirementPlan" section of the 'retirement_planning_task' output.
+    - Education goal feasibility ratings and gap information from the "educationPlans" section of the 'education_planning_task' output.
+    - Client's income data (if available in the original "personal_details" or equivalent section from 'data_extraction_task' output) and client's current age (from "clientProfile" section of 'client_profiling_task' output). If income or current savings data is missing for ratio calculations, you must explicitly note this limitation in your output.
+
+    Perform calculations and assessments as per the 'Current Financial Health' section (Pages 6-7) of the Armstrong Capital General Logic Framework. All new ratio calculations must be performed using the 'MCP Financial Calculator Tool'.
+
+    **Detailed Financial Health Audit Steps:**
+
+    1.  **Calculate Liquidity Ratio (Framework Page 6A):**
+        *   Inputs for MCP Tool: `total_value_of_liquid_assets` (from "assetLiabilityAnalysis"), `total_asset_value` (from "assetLiabilityAnalysis").
+        *   Formula: Liquid Assets / Total Assets.
+        *   Action: Instruct MCP Tool: "Calculate_liquidity_ratio given liquid_assets_value, total_assets_value."
+        *   Diagnosis: Red Flag if < 10-15% (suggests illiquidity). Remark: "Improve emergency corpus."
+
+    2.  **Calculate Real Estate + Low Yield Exposure Ratio (Framework Page 6B):**
+        *   Inputs for MCP Tool: `value_of_real_estate`, `value_of_lic_policies`, `value_of_fds` (all from "assetLiabilityAnalysis" or original asset list), `total_asset_value` (from "assetLiabilityAnalysis").
+        *   Formula: (Value of Real Estate + LIC Policies + FDs) / Total Assets * 100.
+        *   Action: Instruct MCP Tool: "Calculate_low_yield_exposure_ratio given real_estate_value, lic_policies_value, fds_value, total_assets_value."
+        *   Diagnosis: Red Flag if > 50% (overweight in illiquid/low-return assets). Remark: "Diversify portfolio."
+
+    3.  **Classify Financial Flexibility (Framework Page 6C):**
+        *   Input: `percentage_of_assets_in_market_linked_or_liquid_products` (derived from "assetLiabilityAnalysis").
+        *   Classification Rules: High: >30%, Medium: 15-30%, Low: <15%.
+        *   Action: Determine classification. Instruct MCP Tool if it has a specific function: "Classify_financial_flexibility given percentage_market_linked_liquid_assets," or apply logic directly.
+        *   Diagnosis & Remark: e.g., "Low Flexibility." Remark: "Switch to more flexible assets."
+
+    4.  **Incorporate Goal Feasibility Ratings (Framework Page 7D - from prior tasks):**
+        *   Retirement Goal: Extract `retirement_goal_feasibility_rating` (e.g., "Unrealistic") from the "retirementPlan" section. Remark: e.g., "Increase savings or delay retirement."
+        *   Education Goals: Extract feasibility/gap status for each child's education goal from the "educationPlans" section. Consolidate into a summary diagnosis (e.g., "Education Goal Feasibility: Stretch for UG, Aspirational for PG"). Remark: e.g., "Start SIPs in long-term funds for education."
+
+    5.  **Savings Gap Analysis (Framework Page 7E):**
+        *   Inputs: `current_monthly_savings` (needs to be derived from client data: Income - Expenses, or explicitly provided), `required_additional_monthly_sip_for_retirement` (from "retirementPlan"), `required_additional_monthly_sip_for_education_goals` (sum from "educationPlans").
+        *   Logic: If (sum of required SIPs for goals) > `current_monthly_savings`, calculate the shortfall and the required increase percentage.
+        *   Action: Instruct MCP Tool: "Analyze_savings_gap given current_monthly_savings, total_required_goal_sips."
+        *   Diagnosis & Remark: e.g., "Savings Gap: Needs 2x current saving rate." Remark: "Review expenses or income sources." Note if `current_monthly_savings` cannot be determined.
+
+    6.  **Assess Spending Behaviour (Savings Ratio - Framework Page 7F):**
+        *   Inputs for MCP Tool: `total_annual_savings` (derived: Income - Expenses), `total_annual_income` (from client data or stated assumption), `client_current_age` (from "clientProfile").
+        *   Formula: Savings Ratio = Savings / Income.
+        *   Action: Instruct MCP Tool: "Calculate_savings_ratio given total_annual_savings, total_annual_income."
+        *   Diagnosis & Red Flags: Savings < 20% for age < 40; Savings < 30% for age >= 40; OR if expenses > 70% of income. Remark: e.g., "Spending Behaviour: 75% income spent -> High Spending." Remark: "Track and reduce lifestyle inflation." Note if income/savings figures are unavailable.
+
+    7.  **Compile Financial Health Summary Table (Framework Page 7, Step 3 Output):**
+        *   Action: Consolidate all the above parameters (Liquidity Ratio, Real Estate Allocation (same as Low Yield Exposure), Flexibility, Retirement Goal Gap (Feasibility), Education Goal Feasibility, Savings Gap, Spending Behaviour) into the specified table format with "Value/Diagnosis" and "Remark/Actionable".
+
+    8.  **Draft Overall Summary Paragraph:**
+        *   Action: Based on the compiled parameters in the summary table, draft a concise paragraph highlighting the key areas for improvement in the client's financial health.
+
+    **Tool Usage:** Meticulously instruct the 'MCP Financial Calculator Tool' for all ratio calculations. Clearly state all inputs and any assumptions made (especially regarding income or current savings levels if not directly provided).
+
+    **Output Requirement:** Your final output MUST be the original client data JSON string provided in your context, augmented with a new top-level key, "financialHealthAudit", which contains the detailed audit results, including the summary table and paragraph, as specified in the 'expected_output' section.
+  expected_output: >
+    The original client data JSON string, augmented with a "financialHealthAudit" section.
+    The "financialHealthAudit" section should be a JSON object containing:
+    {
+      "key_financial_parameters": [ // Array of objects, matching format on Page 7 of Framework
+        { "parameter_name": "Liquidity Ratio", "value_and_diagnosis": "<e.g., 6% -> Low Liquidity. Red Flag: Below 10-15%.>", "remark_actionable": "Improve emergency corpus, aim for 3-6 months of expenses." },
+        { "parameter_name": "Real Estate + Low Yield Exposure", "value_and_diagnosis": "<e.g., 65% -> High. Red Flag: Above 50%.>", "remark_actionable": "Diversify portfolio towards more liquid and growth-oriented assets." },
+        { "parameter_name": "Financial Flexibility", "value_and_diagnosis": "<e.g., Low (based on <15% in market-linked/liquid)>", "remark_actionable": "Strategically increase allocation to market-linked or easily redeemable products." },
+        { "parameter_name": "Retirement Goal Feasibility", "value_and_diagnosis": "<e.g., 35% Gap -> Unrealistic>", "remark_actionable": "Urgently increase retirement savings, consider delaying retirement, or re-evaluate post-retirement lifestyle expectations." },
+        { "parameter_name": "Education Goal Feasibility (Summary)", "value_and_diagnosis": "<e.g., Child1 UG: Stretch; Child1 PG: Aspirational due to Ret. Gap>", "remark_actionable": "Prioritize UG funding. Start/increase SIPs in long-term diversified equity funds for education." },
+        { "parameter_name": "Savings Gap", "value_and_diagnosis": "<e.g., Required savings are 150% of current savings -> Significant Gap. Red Flag: Increase >50%. or 'Not Calculable: Current savings data unavailable.'>", "remark_actionable": "Urgently review monthly expenses to identify areas for reduction or explore avenues to increase income." },
+        { "parameter_name": "Spending Behaviour (Savings Ratio)", "value_and_diagnosis": "<e.g., Savings Ratio 25% at age 45 (Target >30%) -> Moderate. OR Expenses consume 75% of income -> High Spending. Red Flag. or 'Not Calculable: Income/Expense data incomplete.'>", "remark_actionable": "Implement detailed budgeting. Track discretionary spending and aim to reduce lifestyle inflation. Increase savings ratio." }
+      ],
+      "overall_financial_health_summary_paragraph": "<A concise paragraph. Example: The client exhibits low liquidity and high allocation to illiquid assets, posing a risk. While education goals seem manageable with effort, the retirement goal is currently unrealistic and requires immediate attention through increased savings and potential lifestyle adjustments. High spending relative to income also needs to be addressed to improve overall financial health and goal achievability.>"
+    }
+    If any input data required for a specific ratio (like income or current savings) is missing from the context, the 'value_and_diagnosis' for that parameter should clearly state 'Not Calculable: Required data (e.g., income) missing' and the remark should be adjusted accordingly.
+  agent: FinancialHealthAuditorAgent
+
+
+############################# Task 10 : report_generation_task ##############################
+report_generation_task:
+  description: >
+    Compile a comprehensive financial plan document using the outputs from all previous specialist agents.
+    The inputs will be the structured data from:
+    - Client Profiling Task (client_profiling_task_output_variable)
+    - Asset & Liability Analysis Task (asset_liability_analysis_task_output_variable)
+    - Goal Setting Task (goal_setting_task_output_variable)
+    - Retirement Planning Task (retirement_planning_task_output_variable)
+    - Education Planning Task (education_planning_task_output_variable)
+    - Debt Management Task (debt_management_task_output_variable)
+    - Financial Health Audit Task (financial_health_audit_task_output_variable)
+
+    The final report should be structured logically, typically including (but not limited to) sections for:
+    1.  **Executive Summary:** A brief overview of the client's current situation, key goals, and major recommendations.
+    2.  **Client Profile:** Summary of personal details, investment horizon, and risk appetite.
+    3.  **Current Financial Position:**
+        *   Net Worth Statement (Assets - Liabilities).
+        *   Asset Allocation Summary (with pie chart description if data is available for visualization).
+        *   Asset Classification (Liquid, Retirement, Fixed).
+    4.  **Financial Goals Analysis:**
+        *   Prioritized list of goals (Retirement, Education, Others).
+        *   Summary for each major goal, including target, timeline, and projected costs.
+    5.  **Retirement Plan:** Detailed strategy, corpus requirement, gap analysis, and savings recommendations.
+    6.  **Education Plan(s):** Detailed strategy per child, cost projections, funding gap, and savings recommendations.
+    7.  **Debt Management Strategy:** Overview of current debts, repayment prioritization, and prepayment advice.
+    8.  **Financial Health Summary:** Key ratios, diagnoses, and actionable remarks.
+    9.  **Overall Recommendations & Action Plan:** A consolidated list of actionable steps for the client.
+    10. **Disclaimer.**
+
+    Ensure the language is clear, professional, and easy for the client to understand.
+    Use markdown formatting for headings, lists, tables (where appropriate), and emphasis.
+    Synthesize the information effectively; do not just copy-paste. Provide a cohesive narrative.
+  expected_output: >
+    A single, well-formatted markdown document representing the complete financial plan.
+    The document should be comprehensive, covering all the sections outlined in the description,
+    and present the information in a clear, structured, and client-friendly manner.
+    It should seamlessly integrate the findings from all previous analytical tasks.
+  agent: ReportGeneratorAgent
+
